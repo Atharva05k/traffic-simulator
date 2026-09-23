@@ -12,6 +12,7 @@ from traffic_simulator.config import (
     TEXT_COLOR,
 )
 
+from traffic_simulator.models import Direction
 
 def draw_dashed_line(
         screen,
@@ -267,3 +268,89 @@ def draw_direction_labels(screen):
             surface,
             position,
         )
+
+def draw_vehicles(screen,lanes):
+
+    center_x = WIDTH // 2
+    center_y = HEIGHT //2
+
+    lane_offset = ROAD_WIDTH // 4
+
+    car_colors = [
+        (52, 152, 219),
+        (231, 76, 60),
+        (241, 196, 15),
+        (46, 204, 113),
+        (155, 89, 182),
+    ]
+
+    for direction, lane in lanes.items():
+
+        for vehicle in lane.vehicles:
+
+            distance = vehicle.distance_to_center
+
+            if direction == Direction.NORTH:
+
+                x = center_x - lane_offset
+                y = center_y - distance
+
+                width = 26
+                height = 44
+
+            elif direction == Direction.SOUTH:
+
+                x = center_x + lane_offset
+                y = center_y + distance
+
+                width = 26
+                height = 44
+
+            elif direction == Direction.WEST:
+
+                x = center_x - distance
+                y = center_y + lane_offset
+
+                width = 44
+                height = 26
+
+            else:
+
+                x = center_x + distance
+                y = center_y - lane_offset
+
+                width = 44
+                height = 26
+
+
+            car_rect = pygame.Rect(
+                0,
+                0,
+                width,
+                height,
+            )
+
+            car_rect.center = (
+                int(x),
+                int(y),
+            )
+
+            color = car_colors[
+                vehicle.vehicle_id
+                % len(car_colors)
+            ]
+
+            pygame.draw.rect(
+                screen,
+                color,
+                car_rect,
+                border_radius=5,
+            )
+
+            pygame.draw.rect(
+                screen,
+                WHITE,
+                car_rect,
+                width=2,
+                border_radius=5,
+            )

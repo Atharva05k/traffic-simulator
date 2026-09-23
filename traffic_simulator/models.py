@@ -14,6 +14,9 @@ class Vehicle:
     direction: Direction
     spawn_time: float
 
+    distance_to_center: float = 0.0
+    speed: float = 120.0
+
 @dataclass
 class Lane:
     direction: Direction
