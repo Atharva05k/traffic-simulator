@@ -8,12 +8,19 @@ from traffic_simulator.config import (
     MAX_SPAWN_INTERVAL,
     MIN_VEHICLE_GAP,
     EXIT_DISTANCE,
+    STOP_LINE_DISTANCE,
+    SPAWN_MARGIN,
 )
 
 from traffic_simulator.models import (
     Direction,
     Lane,
     Vehicle,
+)
+
+from traffic_simulator.controller import (
+    SignalState,
+    TrafficLightController,
 )
 
 class TrafficSimulation:
@@ -33,15 +40,17 @@ class TrafficSimulation:
             for direction in Direction
         }
 
+        self.controller = TrafficLightController()
+
     def get_spawn_distance(self, direction):
 
         if direction in (
             Direction.NORTH,
             Direction.SOUTH,
         ):
-            return HEIGHT / 2 - 60
+            return HEIGHT / 2 + SPAWN_MARGIN
 
-        return WIDTH / 2 - 60
+        return WIDTH / 2 + SPAWN_MARGIN
 
     def can_spawn(self, lane, spawn_distance):
 
@@ -95,6 +104,8 @@ class TrafficSimulation:
 
         self.time += dt
 
+        self.controller.update(dt)
+
         self.spawn_timer -= dt
 
         if self.spawn_timer <= 0:
@@ -110,6 +121,10 @@ class TrafficSimulation:
 
                 vehicles = list(lane.vehicles)
 
+                signal = self.controller.get_signal(
+                    lane.direction
+                )
+
                 for index, vehicle in enumerate(vehicles):
 
                     new_distance = (
@@ -117,9 +132,24 @@ class TrafficSimulation:
                         - vehicle.speed * dt
                     )
 
+                    # Stop approaching vehicles at red/yellow lights.
+                    if (
+                        signal != SignalState.GREEN
+                        and vehicle.distance_to_center
+                        >= STOP_LINE_DISTANCE
+                    ):
+
+                        new_distance = max(
+                            new_distance,
+                            STOP_LINE_DISTANCE,
+                        )
+
+                    # Maintain safe distance from the vehicle ahead.
                     if index > 0:
 
-                        vehicle_ahead = vehicles[index - 1]
+                        vehicle_ahead = vehicles[
+                            index - 1
+                        ]
 
                         minimum_distance = (
                             vehicle_ahead.distance_to_center

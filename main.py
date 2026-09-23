@@ -11,6 +11,7 @@ from traffic_simulator.config import (
 from traffic_simulator.renderer import (
     draw_intersection,
     draw_vehicles,
+    draw_traffic_lights,
 )
 
 from traffic_simulator.simulation import TrafficSimulation
@@ -51,9 +52,14 @@ def main():
 
         draw_intersection(screen)
 
+        draw_traffic_lights(
+            screen,
+            simulation.controller,
+        )
+
         draw_vehicles(
             screen,
-            simulation.lanes
+            simulation.lanes,
         )
 
         pygame.display.flip()

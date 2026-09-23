@@ -10,9 +10,12 @@ from traffic_simulator.config import (
     WHITE,
     YELLOW,
     TEXT_COLOR,
+    STOP_LINE_DISTANCE,
 )
 
 from traffic_simulator.models import Direction
+
+from traffic_simulator.controller import SignalState
 
 def draw_dashed_line(
         screen,
@@ -240,6 +243,7 @@ def draw_intersection(screen):
         center_x + half_road + 13,
     )
 
+    draw_stop_lines(screen)
     draw_direction_labels(screen)
 
 def draw_direction_labels(screen):
@@ -354,3 +358,134 @@ def draw_vehicles(screen,lanes):
                 width=2,
                 border_radius=5,
             )
+
+def draw_stop_lines(screen):
+
+    center_x = WIDTH // 2
+    center_y = HEIGHT // 2
+
+    half_road = ROAD_WIDTH // 2
+
+    # North Approach
+    north_y = center_y - STOP_LINE_DISTANCE
+
+    pygame.draw.line(
+        screen,
+        WHITE,
+        (
+            center_x - half_road + 10,
+            north_y,
+        ),
+        (
+            center_x - 10,
+            north_y,
+        ),
+        5,
+    )
+
+    # South Approach
+    south_y = center_y + STOP_LINE_DISTANCE
+    
+    pygame.draw.line(
+        screen,
+        WHITE,
+        (
+            center_x + 10,
+            south_y,
+        ),
+        (
+            center_x + half_road - 10,
+            south_y,
+        ),
+        5,
+    )
+
+    # West Approach
+    west_x = center_x - STOP_LINE_DISTANCE
+    
+    pygame.draw.line(
+        screen,
+        WHITE,
+        (
+            west_x,
+            center_y + 10,
+        ),
+        (
+            west_x,
+            center_y + half_road - 10,
+        ),
+        5,
+    )
+
+    # East Approach
+    east_x = center_x + STOP_LINE_DISTANCE
+    
+    pygame.draw.line(
+        screen,
+        WHITE,
+        (
+            east_x,
+            center_y - half_road + 10,
+        ),
+        (
+            east_x,
+            center_y - 10,
+        ),
+        5,
+    )
+
+def draw_traffic_lights(
+    screen,
+    controller,
+):
+
+    center_x = WIDTH // 2
+    center_y = HEIGHT // 2
+
+    half_road = ROAD_WIDTH // 2
+
+    signal_positions = {
+        Direction.NORTH: (
+            center_x - half_road - 30,
+            center_y - half_road - 30,
+        ),
+
+        Direction.SOUTH: (
+            center_x + half_road + 30,
+            center_y + half_road + 30,
+        ),
+
+        Direction.WEST: (
+            center_x - half_road - 30,
+            center_y + half_road + 30,
+        ),
+
+        Direction.EAST: (
+            center_x + half_road + 30,
+            center_y - half_road - 30,
+        ),
+    }
+
+    colors = {
+        SignalState.RED: (220, 60, 60),
+        SignalState.YELLOW: (240, 190, 40),
+        SignalState.GREEN: (50, 200, 90),
+    }
+
+    for direction, position in signal_positions.items():
+
+        signal = controller.get_signal(direction)
+
+        pygame.draw.circle(
+            screen,
+            (30, 30, 30),
+            position,
+            15,
+        )
+
+        pygame.draw.circle(
+            screen,
+            colors[signal],
+            position,
+            10,
+        )
