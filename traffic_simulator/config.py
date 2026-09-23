@@ -5,4 +5,14 @@ FPS = 60
 
 TITLE = "Traffic Simulator - Adaptive Intersection"
 
-BACKGROUND_COLOR = (18, 24, 32)
+ROAD_WIDTH = 260
+
+BACKGROUND_COLOR = (166, 195, 150)
+
+ROAD_COLOR = (57, 61, 68)
+SIDEWALK_COLOR = (185, 185, 185)
+
+WHITE = (240, 240, 240)
+YELLOW = (245, 200, 70)
+
+TEXT_COLOR = (35, 35, 35)

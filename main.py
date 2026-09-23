@@ -8,6 +8,8 @@ from traffic_simulator.config import (
     BACKGROUND_COLOR,
 )
 
+from traffic_simulator.renderer import draw_intersection
+
 def main():
 
     pygame.init()
@@ -34,7 +36,7 @@ def main():
                 if event.key == pygame.K_ESCAPE:
                     running = False
 
-        screen.fill(BACKGROUND_COLOR)
+        draw_intersection(screen)
 
         pygame.display.flip()
 
