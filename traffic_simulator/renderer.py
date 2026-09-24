@@ -11,6 +11,11 @@ from traffic_simulator.config import (
     YELLOW,
     TEXT_COLOR,
     STOP_LINE_DISTANCE,
+    SIDEBAR_WIDTH,
+    PANEL_COLOR,
+    PANEL_TEXT_COLOR,
+    MUTED_TEXT_COLOR,
+    ACCENT_COLOR,
 )
 
 from traffic_simulator.models import Direction
@@ -489,3 +494,218 @@ def draw_traffic_lights(
             position,
             10,
         )
+
+def draw_dashboard(
+    screen,
+    simulation,
+):
+
+    panel_rect = pygame.Rect(
+        0,
+        0,
+        SIDEBAR_WIDTH,
+        HEIGHT,
+    )
+
+    pygame.draw.rect(
+        screen,
+        PANEL_COLOR,
+        panel_rect,
+    )
+
+    title_font = pygame.font.Font(
+        None,
+        34,
+    )
+
+    heading_font = pygame.font.Font(
+        None,
+        25,
+    )
+
+    text_font = pygame.font.Font(
+        None,
+        22,
+    )
+
+    small_font = pygame.font.Font(
+        None,
+        19,
+    )
+
+    # Title
+    title = title_font.render(
+        "TRAFFIC SIMULATOR",
+        True,
+        PANEL_TEXT_COLOR,
+    )
+
+    screen.blit(
+        title,
+        (20, 25),
+    )
+
+    subtitle = small_font.render(
+        "Adaptive Intersection",
+        True,
+        MUTED_TEXT_COLOR,
+    )
+
+    screen.blit(
+        subtitle,
+        (20, 60),
+    )
+
+    # Controller information
+    mode = (
+        simulation.controller.mode.value
+    )
+
+    phase = (
+        simulation.controller.phase.value
+    )
+
+    mode_text = heading_font.render(
+        f"Mode: {mode}",
+        True,
+        ACCENT_COLOR,
+    )
+
+    screen.blit(
+        mode_text,
+        (20, 105),
+    )
+
+    phase_text = small_font.render(
+        phase.replace("_", " "),
+        True,
+        PANEL_TEXT_COLOR,
+    )
+
+    screen.blit(
+        phase_text,
+        (20, 140),
+    )
+
+    # Statistics
+    y = 195
+
+    stats = [
+        (
+            "Vehicles processed",
+            simulation.total_departed,
+        ),
+        (
+            "Vehicles waiting",
+            simulation.total_queue,
+        ),
+        (
+            "Average wait",
+            f"{simulation.average_wait_time:.1f}s",
+        ),
+        (
+            "Maximum wait",
+            f"{simulation.max_wait_time:.1f}s",
+        ),
+    ]
+
+    for label, value in stats:
+
+        label_surface = text_font.render(
+            label,
+            True,
+            MUTED_TEXT_COLOR,
+        )
+
+        value_surface = text_font.render(
+            str(value),
+            True,
+            PANEL_TEXT_COLOR,
+        )
+
+        screen.blit(
+            label_surface,
+            (20, y),
+        )
+
+        screen.blit(
+            value_surface,
+            (190, y),
+        )
+
+        y += 32
+
+    # Lane queues
+    y += 20
+
+    queue_heading = heading_font.render(
+        "Lane Queues",
+        True,
+        PANEL_TEXT_COLOR,
+    )
+
+    screen.blit(
+        queue_heading,
+        (20, y),
+    )
+
+    y += 38
+
+    for direction in Direction:
+
+        count = (
+            simulation
+            .lanes[direction]
+            .vehicle_count()
+        )
+
+        queue_text = text_font.render(
+            f"{direction.value}: {count}",
+            True,
+            PANEL_TEXT_COLOR,
+        )
+
+        screen.blit(
+            queue_text,
+            (20, y),
+        )
+
+        y += 28
+
+    # Controls
+    y += 20
+
+    controls_heading = heading_font.render(
+        "Controls",
+        True,
+        PANEL_TEXT_COLOR,
+    )
+
+    screen.blit(
+        controls_heading,
+        (20, y),
+    )
+
+    y += 36
+
+    controls = [
+        "[A] Adaptive",
+        "[F] Fixed",
+        "[R] Reset",
+        "[ESC] Exit",
+    ]
+
+    for control in controls:
+
+        control_surface = small_font.render(
+            control,
+            True,
+            MUTED_TEXT_COLOR,
+        )
+
+        screen.blit(
+            control_surface,
+            (20, y),
+        )
+
+        y += 25
