@@ -1,8 +1,14 @@
 from enum import Enum
 
 from traffic_simulator.config import (
-    GREEN_DURATION,
+    MIN_GREEN_DURATION,
+    MAX_GREEN_DURATION,
     YELLOW_DURATION,
+    QUEUE_WEIGHT,
+    WAIT_WEIGHT,
+    SWITCH_MULTIPLIER,
+    STARVATION_LIMIT,
+    STOP_LINE_DISTANCE,
 )
 from traffic_simulator.models import Direction
 
@@ -15,7 +21,17 @@ class TrafficPhase(Enum):
     NORTH_SOUTH_GREEN = "NORTH_SOUTH_GREEEN"
     NORTH_SOUTH_YELLOW = "NORTH_SOUTH_YELLOW"
     EAST_WEST_GREEN = "EAST_WEST_GREEN"
-    EAST_WEST_YELLLOW = "EAST_WEST_YELLOW"
+    EAST_WEST_YELLOW = "EAST_WEST_YELLOW"
+
+NORTH_SOUTH = (
+    Direction.NORTH,
+    Direction.SOUTH,
+)
+
+EAST_WEST = (
+    Direction.EAST,
+    Direction.WEST,
+)
 
 class TrafficLightController:
 
@@ -25,84 +41,177 @@ class TrafficLightController:
 
         self.elapsed_time = 0.0
 
-    def update(self,dt):
+    def change_phase(self, new_phase):
+
+        self.phase = new_phase
+        self.elapsed_time = 0.0
+
+    def get_group_metrics(
+        self,
+        directions,
+        lanes,
+    ):
+
+        queue_count = 0
+        longest_wait = 0.0
+
+        for direction in directions:
+
+            lane = lanes[direction]
+
+            for vehicle in lane.vehicles:
+
+                if (
+                    vehicle.distance_to_center
+                    >= STOP_LINE_DISTANCE
+                ):
+
+                    queue_count += 1
+
+                    longest_wait = max(
+                        longest_wait,
+                        vehicle.wait_time,
+                    )
+
+        score = (
+            queue_count * QUEUE_WEIGHT
+            + longest_wait * WAIT_WEIGHT
+        )
+
+        return (
+            score,
+            queue_count,
+            longest_wait,
+        )
+
+    def update(self, dt, lanes):
 
         self.elapsed_time += dt
 
-        if self.phase == TrafficPhase.NORTH_SOUTH_GREEN:
+         # Yellow phases have fixed duration.
 
-            if self.elapsed_time >= GREEN_DURATION:
-
-                self.phase = (
-                    TrafficPhase.NORTH_SOUTH_YELLOW
-                )
-
-                self.elapsed_time = 0.0
-
-        elif self.phase == TrafficPhase.NORTH_SOUTH_YELLOW:
+        if self.phase == TrafficPhase.NORTH_SOUTH_YELLOW:
 
             if self.elapsed_time >= YELLOW_DURATION:
 
-                self.phase = (
+                self.change_phase(
                     TrafficPhase.EAST_WEST_GREEN
                 )
 
-                self.elapsed_time = 0.0
+            return
 
-        elif self.phase == TrafficPhase.EAST_WEST_GREEN:
-
-            if self.elapsed_time >= GREEN_DURATION:
-
-                self.phase = (
-                    TrafficPhase.EAST_WEST_YELLLOW
-                )
-
-                self.elapsed_time = 0.0
-
-        elif self.phase == TrafficPhase.EAST_WEST_YELLLOW:
+        if self.phase == TrafficPhase.EAST_WEST_YELLOW:
 
             if self.elapsed_time >= YELLOW_DURATION:
 
-                self.phase = (
+                self.change_phase(
                     TrafficPhase.NORTH_SOUTH_GREEN
                 )
 
-                self.elapsed_time = 0.0
+            return
 
-    def get_signal(self, direction):
-
-        north_south = (
-            Direction.NORTH,
-            Direction.SOUTH,
-        )
-
-        east_west = (
-            Direction.EAST,
-            Direction.WEST,
-        )
+        # Determine which direction currently has green.
 
         if self.phase == TrafficPhase.NORTH_SOUTH_GREEN:
 
-            if direction in north_south:
+            current_group = NORTH_SOUTH
+            opposing_group = EAST_WEST
+
+            yellow_phase = (
+                TrafficPhase.NORTH_SOUTH_YELLOW
+            )
+
+        else:
+
+            current_group = EAST_WEST
+            opposing_group = NORTH_SOUTH
+
+            yellow_phase = (
+                TrafficPhase.EAST_WEST_YELLOW
+            )
+
+        # Always provide a minimum green time.
+
+        if self.elapsed_time < MIN_GREEN_DURATION:
+            return
+
+        (
+            current_score,
+            current_queue,
+            current_wait,
+        ) = self.get_group_metrics(
+            current_group,
+            lanes,
+        )
+
+        (
+            opposing_score,
+            opposing_queue,
+            opposing_wait,
+        ) = self.get_group_metrics(
+            opposing_group,
+            lanes,
+        )
+
+        # Nobody is waiting on the opposite side.
+        if opposing_queue == 0:
+            return
+
+        should_switch = False
+
+        # Maximum green reached.
+        if self.elapsed_time >= MAX_GREEN_DURATION:
+
+            should_switch = True
+
+        # Current road has no demand.
+        elif current_queue == 0:
+
+            should_switch = True
+
+        # Prevent a road from waiting forever.
+        elif opposing_wait >= STARVATION_LIMIT:
+
+            should_switch = True
+
+        # Opposite road is significantly busier.
+        elif (
+            opposing_score
+            > current_score * SWITCH_MULTIPLIER
+        ):
+
+            should_switch = True
+
+        if should_switch:
+
+            self.change_phase(
+                yellow_phase
+            )
+
+    def get_signal(self, direction):
+
+        if self.phase == TrafficPhase.NORTH_SOUTH_GREEN:
+
+            if direction in NORTH_SOUTH:
                 return SignalState.GREEN
 
             return SignalState.RED
 
         if self.phase == TrafficPhase.NORTH_SOUTH_YELLOW:
 
-            if direction in north_south:
+            if direction in NORTH_SOUTH:
                 return SignalState.YELLOW
 
             return SignalState.RED
 
         if self.phase == TrafficPhase.EAST_WEST_GREEN:
 
-            if direction in east_west:
+            if direction in EAST_WEST:
                 return SignalState.GREEN
 
             return SignalState.RED
 
-        if direction in east_west:
+        if direction in EAST_WEST:
             return SignalState.YELLOW
 
         return SignalState.RED

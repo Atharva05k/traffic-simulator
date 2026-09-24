@@ -16,6 +16,7 @@ class Vehicle:
 
     distance_to_center: float = 0.0
     speed: float = 120.0
+    wait_time: float = 0.0
 
 @dataclass
 class Lane:

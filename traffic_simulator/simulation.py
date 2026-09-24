@@ -104,7 +104,7 @@ class TrafficSimulation:
 
         self.time += dt
 
-        self.controller.update(dt)
+        self.controller.update(dt, self.lanes,)
 
         self.spawn_timer -= dt
 
@@ -126,6 +126,8 @@ class TrafficSimulation:
                 )
 
                 for index, vehicle in enumerate(vehicles):
+
+                    old_distance = vehicle.distance_to_center
 
                     new_distance = (
                         vehicle.distance_to_center
@@ -162,6 +164,12 @@ class TrafficSimulation:
                         )
 
                     vehicle.distance_to_center = new_distance
+
+                    if (
+                        abs(new_distance - old_distance) < 0.01
+                        and vehicle.distance_to_center >= STOP_LINE_DISTANCE
+                    ):
+                        vehicle.wait_time += dt
 
                 while (
                     lane.vehicles
