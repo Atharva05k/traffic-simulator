@@ -1,6 +1,7 @@
 from enum import Enum
 
 from traffic_simulator.config import (
+    FIXED_GREEN_DURATION,
     MIN_GREEN_DURATION,
     MAX_GREEN_DURATION,
     YELLOW_DURATION,
@@ -16,6 +17,10 @@ class SignalState(Enum):
    RED = "RED"
    YELLOW = "YELLOW"
    GREEN = "GREEN"
+
+class ControllerMode(Enum):
+    FIXED = "FIXED"
+    ADAPTIVE = "ADAPTIVE"
 
 class TrafficPhase(Enum):
     NORTH_SOUTH_GREEN = "NORTH_SOUTH_GREEEN"
@@ -40,6 +45,8 @@ class TrafficLightController:
         self.phase = TrafficPhase.NORTH_SOUTH_GREEN
 
         self.elapsed_time = 0.0
+
+        self.mode = ControllerMode.ADAPTIVE
 
     def change_phase(self, new_phase):
 
@@ -84,7 +91,7 @@ class TrafficLightController:
             longest_wait,
         )
 
-    def update(self, dt, lanes):
+    def update_adaptive(self, dt, lanes):
 
         self.elapsed_time += dt
 
@@ -188,6 +195,55 @@ class TrafficLightController:
                 yellow_phase
             )
 
+    def update_fixed(self, dt):
+
+        self.elapsed_time += dt
+
+        if self.phase == TrafficPhase.NORTH_SOUTH_GREEN:
+
+            if self.elapsed_time >= FIXED_GREEN_DURATION:
+
+                self.change_phase(
+                    TrafficPhase.NORTH_SOUTH_YELLOW
+                )
+
+        elif self.phase == TrafficPhase.NORTH_SOUTH_YELLOW:
+
+            if self.elapsed_time >= YELLOW_DURATION:
+
+                self.change_phase(
+                    TrafficPhase.EAST_WEST_GREEN
+                )
+
+        elif self.phase == TrafficPhase.EAST_WEST_GREEN:
+
+            if self.elapsed_time >= FIXED_GREEN_DURATION:
+
+                self.change_phase(
+                    TrafficPhase.EAST_WEST_YELLOW
+                )
+
+        elif self.phase == TrafficPhase.EAST_WEST_YELLOW:
+
+            if self.elapsed_time >= YELLOW_DURATION:
+
+                self.change_phase(
+                    TrafficPhase.NORTH_SOUTH_GREEN
+                )
+
+    def update(self, dt, lanes):
+
+        if self.mode == ControllerMode.FIXED:
+
+            self.update_fixed(dt)
+
+        else:
+
+            self.update_adaptive(
+                dt,
+                lanes,
+            )
+
     def get_signal(self, direction):
 
         if self.phase == TrafficPhase.NORTH_SOUTH_GREEN:
@@ -215,3 +271,18 @@ class TrafficLightController:
             return SignalState.YELLOW
 
         return SignalState.RED
+
+    def set_mode(self, mode):
+
+        if not isinstance(mode, ControllerMode):
+            raise ValueError(
+                "mode must be a ControllerMode"
+            )
+
+        self.mode = mode
+
+        self.phase = (
+            TrafficPhase.NORTH_SOUTH_GREEN
+        )
+
+        self.elapsed_time = 0.0

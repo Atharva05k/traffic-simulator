@@ -21,10 +21,29 @@ from traffic_simulator.models import (
 from traffic_simulator.controller import (
     SignalState,
     TrafficLightController,
+    TrafficPhase,
 )
 
 class TrafficSimulation:
 
+    @property
+    def total_queue(self):
+
+        return sum(
+            lane.vehicle_count()
+            for lane in self.lanes.values()
+        )
+    @property
+    def average_wait_time(self):
+
+        if self.total_departed == 0:
+            return 0.0
+
+        return (
+            self.total_wait_time
+            / self.total_departed
+        )
+    
     def __init__(self, seed=None):
 
         self.random = random.Random(seed)
@@ -34,6 +53,12 @@ class TrafficSimulation:
         self.next_vehicle_id = 1
 
         self.spawn_timer = 0.0
+
+        self.total_departed = 0
+
+        self.total_wait_time = 0.0
+
+        self.max_wait_time = 0.0
 
         self.lanes = {
             direction: Lane(direction)
@@ -176,5 +201,44 @@ class TrafficSimulation:
                     and lane.vehicles[0].distance_to_center
                     < -EXIT_DISTANCE
                 ):
-                    lane.remove_vehicle()
+                    departed_vehicle = (
+                        lane.remove_vehicle()
+                    )
 
+                    if departed_vehicle is not None:
+
+                        self.total_departed += 1
+
+                        self.total_wait_time += (
+                            departed_vehicle.wait_time
+                        )
+
+                        self.max_wait_time = max(
+                            self.max_wait_time,
+                            departed_vehicle.wait_time,
+                        )
+
+    def reset(self):
+
+        self.time = 0.0
+
+        self.next_vehicle_id = 1
+
+        self.spawn_timer = 0.0
+
+        self.total_departed = 0
+
+        self.total_wait_time = 0.0
+
+        self.max_wait_time = 0.0
+
+        self.lanes = {
+            direction: Lane(direction)
+            for direction in Direction
+        }
+
+        self.controller.phase = (
+            TrafficPhase.NORTH_SOUTH_GREEN
+        )
+
+        self.controller.elapsed_time = 0.0

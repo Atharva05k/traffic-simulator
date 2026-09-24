@@ -16,6 +16,10 @@ from traffic_simulator.renderer import (
 
 from traffic_simulator.simulation import TrafficSimulation
 
+from traffic_simulator.controller import (
+    ControllerMode,
+)
+
 def main():
 
     pygame.init()
@@ -48,7 +52,70 @@ def main():
                 if event.key == pygame.K_ESCAPE:
                     running = False
 
+                elif event.key == pygame.K_a:
+
+                    simulation.controller.set_mode(
+                        ControllerMode.ADAPTIVE
+                    )       
+
+                    simulation.reset()
+
+                    print(
+                        "Controller mode: ADAPTIVE"
+                    )
+
+                elif event.key == pygame.K_f:
+                    
+                    simulation.controller.set_mode(
+                        ControllerMode.FIXED
+                    )
+
+                    simulation.reset()
+
+                    print(
+                        "Controller mode: FIXED"
+                    )
+
+                elif event.key == pygame.K_r:
+
+                    print(
+                        f"Mode: "
+                        f"{simulation.controller.mode.value}"
+                    )
+
+                    print(
+                        f"Vehicles processed: "
+                        f"{simulation.total_departed}"
+                    )
+
+                    print(
+                        f"Average wait: "
+                        f"{simulation.average_wait_time:.2f}s"
+                    )
+
+                    print(
+                        f"Maximum wait: "
+                        f"{simulation.max_wait_time:.2f}s"
+                    )
+
+                    print(
+                        f"Vehicles currently queued: "
+                        f"{simulation.total_queue}"
+                    )
+
+                    print("-" * 40)
+
+                    simulation.reset()
+
+                    print("Simulation reset")  
+
         simulation.update(dt)
+
+        mode = simulation.controller.mode.value
+
+        pygame.display.set_caption(
+            f"{TITLE} | Mode: {mode}"
+        )
 
         draw_intersection(screen)
 
