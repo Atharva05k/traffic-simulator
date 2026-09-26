@@ -10,6 +10,8 @@ from traffic_simulator.config import (
     SWITCH_MULTIPLIER,
     STARVATION_LIMIT,
     STOP_LINE_DISTANCE,
+    ALL_RED_DURATION,
+    INTERSECTION_CLEAR_DISTANCE,
 )
 from traffic_simulator.models import Direction
 
@@ -23,10 +25,12 @@ class ControllerMode(Enum):
     ADAPTIVE = "ADAPTIVE"
 
 class TrafficPhase(Enum):
-    NORTH_SOUTH_GREEN = "NORTH_SOUTH_GREEEN"
+    NORTH_SOUTH_GREEN = "NORTH_SOUTH_GREEN"
     NORTH_SOUTH_YELLOW = "NORTH_SOUTH_YELLOW"
+    ALL_RED_TO_EAST_WEST = "ALL_RED_TO_EAST_WEST"
     EAST_WEST_GREEN = "EAST_WEST_GREEN"
     EAST_WEST_YELLOW = "EAST_WEST_YELLOW"
+    ALL_RED_TO_NORTH_SOUTH = "ALL_RED_TO_NORTH_SOUTH"
 
 NORTH_SOUTH = (
     Direction.NORTH,
@@ -52,6 +56,26 @@ class TrafficLightController:
 
         self.phase = new_phase
         self.elapsed_time = 0.0
+
+    def intersection_is_clear(
+        self,
+        lanes,
+    ):
+
+        for lane in lanes.values():
+
+            for vehicle in lane.vehicles:
+
+                if (
+                    abs(
+                        vehicle.distance_to_center
+                    )
+                    <= INTERSECTION_CLEAR_DISTANCE
+                ):
+
+                    return False
+
+        return True    
 
     def get_group_metrics(
         self,
@@ -95,11 +119,29 @@ class TrafficLightController:
 
         self.elapsed_time += dt
 
-         # Yellow phases have fixed duration.
+        # -----------------------------------
+        # YELLOW / ALL-RED TRANSITION PHASES
+        # -----------------------------------
 
         if self.phase == TrafficPhase.NORTH_SOUTH_YELLOW:
 
             if self.elapsed_time >= YELLOW_DURATION:
+
+                self.change_phase(
+                    TrafficPhase.ALL_RED_TO_EAST_WEST
+                )
+
+            return
+
+
+        if self.phase == TrafficPhase.ALL_RED_TO_EAST_WEST:
+
+            if (
+                self.elapsed_time >= ALL_RED_DURATION
+                and self.intersection_is_clear(
+                    lanes
+                )
+            ):
 
                 self.change_phase(
                     TrafficPhase.EAST_WEST_GREEN
@@ -107,9 +149,26 @@ class TrafficLightController:
 
             return
 
+
         if self.phase == TrafficPhase.EAST_WEST_YELLOW:
 
             if self.elapsed_time >= YELLOW_DURATION:
+
+                self.change_phase(
+                    TrafficPhase.ALL_RED_TO_NORTH_SOUTH
+                )
+
+            return
+
+
+        if self.phase == TrafficPhase.ALL_RED_TO_NORTH_SOUTH:
+
+            if (
+                self.elapsed_time >= ALL_RED_DURATION
+                and self.intersection_is_clear(
+                    lanes
+                )
+            ):
 
                 self.change_phase(
                     TrafficPhase.NORTH_SOUTH_GREEN
@@ -117,7 +176,10 @@ class TrafficLightController:
 
             return
 
-        # Determine which direction currently has green.
+
+        # -----------------------------------
+        # DETERMINE CURRENT GREEN DIRECTION
+        # -----------------------------------
 
         if self.phase == TrafficPhase.NORTH_SOUTH_GREEN:
 
@@ -128,7 +190,7 @@ class TrafficLightController:
                 TrafficPhase.NORTH_SOUTH_YELLOW
             )
 
-        else:
+        elif self.phase == TrafficPhase.EAST_WEST_GREEN:
 
             current_group = EAST_WEST
             opposing_group = NORTH_SOUTH
@@ -137,10 +199,21 @@ class TrafficLightController:
                 TrafficPhase.EAST_WEST_YELLOW
             )
 
-        # Always provide a minimum green time.
+        else:
+            return
+
+
+        # -----------------------------------
+        # MINIMUM GREEN TIME
+        # -----------------------------------
 
         if self.elapsed_time < MIN_GREEN_DURATION:
             return
+
+
+        # -----------------------------------
+        # CALCULATE TRAFFIC DEMAND
+        # -----------------------------------
 
         (
             current_score,
@@ -160,28 +233,35 @@ class TrafficLightController:
             lanes,
         )
 
-        # Nobody is waiting on the opposite side.
+
+        # No reason to switch if nobody
+        # is waiting on the other road.
         if opposing_queue == 0:
             return
 
+
+        # -----------------------------------
+        # DECIDE WHETHER TO SWITCH
+        # -----------------------------------
+
         should_switch = False
 
-        # Maximum green reached.
+        # Green has lasted too long.
         if self.elapsed_time >= MAX_GREEN_DURATION:
 
             should_switch = True
 
-        # Current road has no demand.
+        # Current road has no waiting traffic.
         elif current_queue == 0:
 
             should_switch = True
 
-        # Prevent a road from waiting forever.
+        # Prevent opposite road starvation.
         elif opposing_wait >= STARVATION_LIMIT:
 
             should_switch = True
 
-        # Opposite road is significantly busier.
+        # Opposite side has much higher demand.
         elif (
             opposing_score
             > current_score * SWITCH_MULTIPLIER
@@ -189,13 +269,18 @@ class TrafficLightController:
 
             should_switch = True
 
+
+        # -----------------------------------
+        # BEGIN SAFE SIGNAL TRANSITION
+        # -----------------------------------
+
         if should_switch:
 
             self.change_phase(
                 yellow_phase
             )
 
-    def update_fixed(self, dt):
+    def update_fixed(self, dt, lanes):
 
         self.elapsed_time += dt
 
@@ -210,6 +295,23 @@ class TrafficLightController:
         elif self.phase == TrafficPhase.NORTH_SOUTH_YELLOW:
 
             if self.elapsed_time >= YELLOW_DURATION:
+
+                self.change_phase(
+                    TrafficPhase.ALL_RED_TO_EAST_WEST
+                )
+
+        elif (
+            self.phase
+            == TrafficPhase.ALL_RED_TO_EAST_WEST
+        ):
+
+            if (
+                self.elapsed_time
+                >= ALL_RED_DURATION
+                and self.intersection_is_clear(
+                    lanes
+                )
+            ):
 
                 self.change_phase(
                     TrafficPhase.EAST_WEST_GREEN
@@ -228,6 +330,23 @@ class TrafficLightController:
             if self.elapsed_time >= YELLOW_DURATION:
 
                 self.change_phase(
+                    TrafficPhase.ALL_RED_TO_NORTH_SOUTH
+                )
+
+        elif (
+            self.phase
+            == TrafficPhase.ALL_RED_TO_NORTH_SOUTH
+        ):
+
+            if (
+                self.elapsed_time
+                >= ALL_RED_DURATION
+                and self.intersection_is_clear(
+                    lanes
+                )
+            ):
+
+                self.change_phase(
                     TrafficPhase.NORTH_SOUTH_GREEN
                 )
 
@@ -235,7 +354,7 @@ class TrafficLightController:
 
         if self.mode == ControllerMode.FIXED:
 
-            self.update_fixed(dt)
+            self.update_fixed(dt, lanes,)
 
         else:
 
@@ -246,12 +365,21 @@ class TrafficLightController:
 
     def get_signal(self, direction):
 
+        if self.phase in (
+            TrafficPhase.ALL_RED_TO_EAST_WEST,
+            TrafficPhase.ALL_RED_TO_NORTH_SOUTH,
+        ):
+
+            return SignalState.RED
+
+
         if self.phase == TrafficPhase.NORTH_SOUTH_GREEN:
 
             if direction in NORTH_SOUTH:
                 return SignalState.GREEN
 
             return SignalState.RED
+
 
         if self.phase == TrafficPhase.NORTH_SOUTH_YELLOW:
 
@@ -260,6 +388,7 @@ class TrafficLightController:
 
             return SignalState.RED
 
+
         if self.phase == TrafficPhase.EAST_WEST_GREEN:
 
             if direction in EAST_WEST:
@@ -267,8 +396,14 @@ class TrafficLightController:
 
             return SignalState.RED
 
-        if direction in EAST_WEST:
-            return SignalState.YELLOW
+
+        if self.phase == TrafficPhase.EAST_WEST_YELLOW:
+
+            if direction in EAST_WEST:
+                return SignalState.YELLOW
+
+            return SignalState.RED
+
 
         return SignalState.RED
 

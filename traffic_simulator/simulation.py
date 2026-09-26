@@ -10,6 +10,8 @@ from traffic_simulator.config import (
     EXIT_DISTANCE,
     STOP_LINE_DISTANCE,
     SPAWN_MARGIN,
+    INTERSECTION_CENTER_X,
+    INTERSECTION_CENTER_Y,
 )
 
 from traffic_simulator.models import (
@@ -30,9 +32,10 @@ class TrafficSimulation:
     def total_queue(self):
 
         return sum(
-            lane.vehicle_count()
-            for lane in self.lanes.values()
-        )
+            self.get_queue_count(direction)
+            for direction in Direction
+    )
+    
     @property
     def average_wait_time(self):
 
@@ -69,13 +72,30 @@ class TrafficSimulation:
 
     def get_spawn_distance(self, direction):
 
-        if direction in (
-            Direction.NORTH,
-            Direction.SOUTH,
-        ):
-            return HEIGHT / 2 + SPAWN_MARGIN
+        if direction == Direction.NORTH:
+            return (
+                INTERSECTION_CENTER_Y
+                + SPAWN_MARGIN
+            )
 
-        return WIDTH / 2 + SPAWN_MARGIN
+        if direction == Direction.SOUTH:
+            return (
+                HEIGHT
+                - INTERSECTION_CENTER_Y
+                + SPAWN_MARGIN
+            )
+
+        if direction == Direction.WEST:
+            return (
+                INTERSECTION_CENTER_X
+                + SPAWN_MARGIN
+            )
+
+        return (
+            WIDTH
+            - INTERSECTION_CENTER_X
+            + SPAWN_MARGIN
+        )
 
     def can_spawn(self, lane, spawn_distance):
 
@@ -129,7 +149,15 @@ class TrafficSimulation:
 
         self.time += dt
 
-        self.controller.update(dt, self.lanes,)
+        # Update traffic-light controller every frame.
+        self.controller.update(
+            dt,
+            self.lanes,
+        )
+
+        # -------------------------------
+        # VEHICLE SPAWNING
+        # -------------------------------
 
         self.spawn_timer -= dt
 
@@ -142,81 +170,102 @@ class TrafficSimulation:
                 MAX_SPAWN_INTERVAL,
             )
 
-            for lane in self.lanes.values():
+        # -------------------------------
+        # VEHICLE MOVEMENT
+        # -------------------------------
 
-                vehicles = list(lane.vehicles)
+        for lane in self.lanes.values():
 
-                signal = self.controller.get_signal(
-                    lane.direction
+            vehicles = list(lane.vehicles)
+
+            signal = self.controller.get_signal(
+                lane.direction
+            )
+
+            for index, vehicle in enumerate(vehicles):
+
+                old_distance = (
+                    vehicle.distance_to_center
                 )
 
-                for index, vehicle in enumerate(vehicles):
+                new_distance = (
+                    vehicle.distance_to_center
+                    - vehicle.speed * dt
+                )
 
-                    old_distance = vehicle.distance_to_center
-
-                    new_distance = (
-                        vehicle.distance_to_center
-                        - vehicle.speed * dt
-                    )
-
-                    # Stop approaching vehicles at red/yellow lights.
-                    if (
-                        signal != SignalState.GREEN
-                        and vehicle.distance_to_center
-                        >= STOP_LINE_DISTANCE
-                    ):
-
-                        new_distance = max(
-                            new_distance,
-                            STOP_LINE_DISTANCE,
-                        )
-
-                    # Maintain safe distance from the vehicle ahead.
-                    if index > 0:
-
-                        vehicle_ahead = vehicles[
-                            index - 1
-                        ]
-
-                        minimum_distance = (
-                            vehicle_ahead.distance_to_center
-                            + MIN_VEHICLE_GAP
-                        )
-
-                        new_distance = max(
-                            new_distance,
-                            minimum_distance,
-                        )
-
-                    vehicle.distance_to_center = new_distance
-
-                    if (
-                        abs(new_distance - old_distance) < 0.01
-                        and vehicle.distance_to_center >= STOP_LINE_DISTANCE
-                    ):
-                        vehicle.wait_time += dt
-
-                while (
-                    lane.vehicles
-                    and lane.vehicles[0].distance_to_center
-                    < -EXIT_DISTANCE
+                # Stop approaching vehicles
+                # when signal is not green.
+                if (
+                    signal != SignalState.GREEN
+                    and vehicle.distance_to_center
+                    >= STOP_LINE_DISTANCE
                 ):
-                    departed_vehicle = (
-                        lane.remove_vehicle()
+
+                    new_distance = max(
+                        new_distance,
+                        STOP_LINE_DISTANCE,
                     )
 
-                    if departed_vehicle is not None:
+                # Maintain safe distance
+                # from the vehicle ahead.
+                if index > 0:
 
-                        self.total_departed += 1
+                    vehicle_ahead = vehicles[
+                        index - 1
+                    ]
 
-                        self.total_wait_time += (
-                            departed_vehicle.wait_time
-                        )
+                    minimum_distance = (
+                        vehicle_ahead.distance_to_center
+                        + MIN_VEHICLE_GAP
+                    )
 
-                        self.max_wait_time = max(
-                            self.max_wait_time,
-                            departed_vehicle.wait_time,
-                        )
+                    new_distance = max(
+                        new_distance,
+                        minimum_distance,
+                    )
+
+                vehicle.distance_to_center = (
+                    new_distance
+                )
+
+                # Count waiting time.
+                if (
+                    abs(
+                        new_distance
+                        - old_distance
+                    ) < 0.01
+                    and vehicle.distance_to_center
+                    >= STOP_LINE_DISTANCE
+                ):
+
+                    vehicle.wait_time += dt
+
+            # -------------------------------
+            # REMOVE VEHICLES THAT EXIT
+            # -------------------------------
+
+            while (
+                lane.vehicles
+                and lane.vehicles[0].distance_to_center
+                < -EXIT_DISTANCE
+            ):
+
+                departed_vehicle = (
+                    lane.remove_vehicle()
+                )
+
+                if departed_vehicle is not None:
+
+                    self.total_departed += 1
+
+                    self.total_wait_time += (
+                        departed_vehicle.wait_time
+                    )
+
+                    self.max_wait_time = max(
+                        self.max_wait_time,
+                        departed_vehicle.wait_time,
+                    )
 
     def reset(self):
 
@@ -242,3 +291,16 @@ class TrafficSimulation:
         )
 
         self.controller.elapsed_time = 0.0
+
+    def get_queue_count(self, direction):
+
+        lane = self.lanes[direction]
+
+        return sum(
+            1
+            for vehicle in lane.vehicles
+            if (
+                vehicle.distance_to_center
+                >= STOP_LINE_DISTANCE
+            )
+        )

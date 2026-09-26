@@ -16,6 +16,8 @@ from traffic_simulator.config import (
     PANEL_TEXT_COLOR,
     MUTED_TEXT_COLOR,
     ACCENT_COLOR,
+    INTERSECTION_CENTER_X,
+    INTERSECTION_CENTER_Y,
 )
 
 from traffic_simulator.models import Direction
@@ -65,7 +67,8 @@ def draw_dashed_line(
 
 def draw_horizontal_crosswalk(screen, y):
 
-    center_x = WIDTH // 2
+    # draw_horizontal_crosswalk()
+    center_x = INTERSECTION_CENTER_X
     half_road = ROAD_WIDTH // 2
 
     stripe_width = 14
@@ -90,7 +93,8 @@ def draw_horizontal_crosswalk(screen, y):
 
 def draw_vertical_crosswalk(screen, x):
 
-    center_y = HEIGHT // 2
+    # draw_vertical_crosswalk()
+    center_y = INTERSECTION_CENTER_Y
     half_road = ROAD_WIDTH // 2
 
     stripe_height = 14
@@ -117,8 +121,8 @@ def draw_intersection(screen):
 
     screen.fill(BACKGROUND_COLOR)
 
-    center_x  = WIDTH // 2
-    center_y = HEIGHT // 2
+    center_x = INTERSECTION_CENTER_X
+    center_y = INTERSECTION_CENTER_Y
 
     half_road = ROAD_WIDTH // 2
 
@@ -155,7 +159,7 @@ def draw_intersection(screen):
         SIDEWALK_COLOR,
         (
             0,
-            center_y + half_road,
+            center_y - half_road - sidewalk_size,
             WIDTH,
             sidewalk_size,
         ),
@@ -255,8 +259,8 @@ def draw_direction_labels(screen):
 
     font = pygame.font.Font(None, 30)
 
-    center_x = WIDTH // 2
-    center_y = HEIGHT // 2
+    center_x = INTERSECTION_CENTER_X
+    center_y = INTERSECTION_CENTER_Y
 
     labels = {
         "NORTH": (center_x + 170, 40),
@@ -280,8 +284,8 @@ def draw_direction_labels(screen):
 
 def draw_vehicles(screen,lanes):
 
-    center_x = WIDTH // 2
-    center_y = HEIGHT //2
+    center_x = INTERSECTION_CENTER_X
+    center_y = INTERSECTION_CENTER_Y
 
     lane_offset = ROAD_WIDTH // 4
 
@@ -366,8 +370,8 @@ def draw_vehicles(screen,lanes):
 
 def draw_stop_lines(screen):
 
-    center_x = WIDTH // 2
-    center_y = HEIGHT // 2
+    center_x = INTERSECTION_CENTER_X
+    center_y = INTERSECTION_CENTER_Y
 
     half_road = ROAD_WIDTH // 2
 
@@ -444,8 +448,8 @@ def draw_traffic_lights(
     controller,
 ):
 
-    center_x = WIDTH // 2
-    center_y = HEIGHT // 2
+    center_x = INTERSECTION_CENTER_X
+    center_y = INTERSECTION_CENTER_Y
 
     half_road = ROAD_WIDTH // 2
 
@@ -551,6 +555,14 @@ def draw_dashboard(
         MUTED_TEXT_COLOR,
     )
 
+    pygame.draw.line(
+        screen,
+        (55, 65, 78),
+        (20, 88),
+        (SIDEBAR_WIDTH - 20, 88),
+        1,
+    )
+
     screen.blit(
         subtitle,
         (20, 60),
@@ -653,14 +665,12 @@ def draw_dashboard(
 
     for direction in Direction:
 
-        count = (
-            simulation
-            .lanes[direction]
-            .vehicle_count()
+        count = simulation.get_queue_count(
+            direction
         )
 
         queue_text = text_font.render(
-            f"{direction.value}: {count}",
+            direction.value,
             True,
             PANEL_TEXT_COLOR,
         )
@@ -670,7 +680,55 @@ def draw_dashboard(
             (20, y),
         )
 
-        y += 28
+        bar_x = 90
+        bar_y = y + 5
+        bar_width = 105
+        bar_height = 10
+
+        pygame.draw.rect(
+            screen,
+            (55, 65, 78),
+            (
+                bar_x,
+                bar_y,
+                bar_width,
+                bar_height,
+            ),
+            border_radius=4,
+        )
+
+        filled_width = min(
+            count * 15,
+            bar_width,
+        )
+
+        if filled_width > 0:
+
+            pygame.draw.rect(
+                screen,
+                ACCENT_COLOR,
+                (
+                    bar_x,
+                    bar_y,
+                    filled_width,
+                    bar_height,
+                ),
+                border_radius=4,
+            )
+
+        count_text = text_font.render(
+            str(count),
+            True,
+            PANEL_TEXT_COLOR,
+        )
+
+        screen.blit(
+            count_text,
+            (215, y),
+        )
+
+        y += 30
+
 
     # Controls
     y += 20
@@ -689,10 +747,10 @@ def draw_dashboard(
     y += 36
 
     controls = [
-        "[A] Adaptive",
-        "[F] Fixed",
-        "[R] Reset",
-        "[ESC] Exit",
+        "[A/F] Change Mode",
+        "[1/2/4] Simulation Speed",
+        "[SPACE] Pause / Resume",
+        "[R] Reset   [ESC] Exit",
     ]
 
     for control in controls:

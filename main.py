@@ -39,6 +39,10 @@ def main():
 
     running = True
 
+    simulation_speed = 1.0
+
+    paused = False
+
     while running:
 
         dt = clock.tick(FPS) / 1000.0
@@ -109,13 +113,53 @@ def main():
                     simulation.reset()
 
                     print("Simulation reset")  
+                
+                elif event.key == pygame.K_1:
 
-        simulation.update(dt)
+                    simulation_speed = 1.0
+
+                    print("Simulation speed: 1x")
+
+
+                elif event.key == pygame.K_2:
+
+                    simulation_speed = 2.0
+
+                    print("Simulation speed: 2x")
+
+
+                elif event.key == pygame.K_4:
+
+                    simulation_speed = 4.0
+
+                    print("Simulation speed: 4x")
+
+
+                elif event.key == pygame.K_SPACE:
+
+                    paused = not paused
+
+                    if paused:
+                        print("Simulation paused")
+
+                    else:
+                        print("Simulation resumed")
+
+        if not paused:
+            simulation.update(dt * simulation_speed)
 
         mode = simulation.controller.mode.value
 
+        status = (
+            "PAUSED"
+            if paused
+            else f"{simulation_speed:g}x"
+        )
+
         pygame.display.set_caption(
-            f"{TITLE} | Mode: {mode}"
+            f"{TITLE} | "
+            f"Mode: {mode} | "
+            f"Speed: {status}"
         )
 
         draw_intersection(screen)
