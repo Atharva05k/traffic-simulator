@@ -36,3 +36,18 @@ North/South Yellow
      All Red
         ↓
 East/West Green
+```
+
+## Demo
+
+### Screenshot
+
+![Traffic Simulator](screenshots/traffic_simulator.png)
+
+### Fixed Mode
+
+[Watch Fixed Mode Demo](demo/fixed_mode.mp4)
+
+### Adaptive Mode
+
+[Watch Adaptive Mode Demo](demo/adaptive_mode.mp4)
